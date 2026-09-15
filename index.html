@@ -43,7 +43,7 @@ function render(){grid.innerHTML=P.filter(p=>filter==='all'||p.cat.includes(filt
 document.querySelectorAll('.filter').forEach(b=>b.onclick=()=>{document.querySelector('.filter.active').classList.remove('active');b.classList.add('active');filter=b.dataset.f;render()});
 const MONTHS=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 let calCur=(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1)})();
-const API='/api/watering';
+const API='https://jungle-watering-api.mqog1v.workers.dev/watering';
 let LOG={entries:[]};
 let ME=localStorage.getItem('jungle-by')||'';
 function dayDiff(a,b){return Math.round((Date.UTC(a.getFullYear(),a.getMonth(),a.getDate())-Date.UTC(b.getFullYear(),b.getMonth(),b.getDate()))/864e5)}
@@ -62,8 +62,8 @@ function saveCache(){try{localStorage.setItem('jungle-cache',JSON.stringify(LOG)
 function pendingGet(){try{return JSON.parse(localStorage.getItem('jungle-pending')||'[]')}catch(e){return[]}}
 function pendingSet(a){try{localStorage.setItem('jungle-pending',JSON.stringify(a))}catch(e){}}
 async function pushEntries(entries){
-  try{const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({entries})});
-    if(!r.ok)throw 0;LOG=await r.json();saveCache();pendingSet([]);renderCal();
+  try{const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(entries[0])});
+    if(!r.ok)throw 0;LOG={entries:await r.json()};saveCache();pendingSet([]);renderCal();
   }catch(e){pendingSet(pendingGet().concat(entries));toast('אין חיבור כרגע - ההשקיה תסתנכרן אחר כך');}
 }
 function water(id,reopen=false){
@@ -79,7 +79,7 @@ function migrateLocal(){
   return out;
 }
 async function pull(){
-  try{const r=await fetch(API,{cache:'no-store'});if(!r.ok)throw 0;LOG=await r.json();saveCache();}
+  try{const r=await fetch(API,{cache:'no-store'});if(!r.ok)throw 0;LOG={entries:await r.json()};saveCache();}
   catch(e){const c=localStorage.getItem('jungle-cache');if(c){try{LOG=JSON.parse(c)}catch(_){}}}
   const up=pendingGet().concat(migrateLocal()).filter(e=>!LOG.entries.some(x=>x.id===e.id));
   if(up.length)pushEntries(up);
