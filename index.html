@@ -101,4 +101,12 @@ function renderWhos(){document.querySelectorAll('#whos button').forEach(b=>b.cla
 document.querySelectorAll('#whos button').forEach(b=>b.onclick=()=>{ME=(ME===b.dataset.n?'':b.dataset.n);localStorage.setItem('jungle-by',ME);renderWhos()});
 renderWhos();
 document.querySelectorAll('.bottom-nav button').forEach(b=>b.onclick=()=>{document.getElementById(b.dataset.target).scrollIntoView({behavior:'smooth'});document.querySelectorAll('.bottom-nav button').forEach(x=>x.classList.toggle('active',x===b))});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});render();renderCal();pull();
-</script></body></html>
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(console.error);
+  });
+}
+</script>
+</body></html>
