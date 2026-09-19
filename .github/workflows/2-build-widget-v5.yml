@@ -1,0 +1,77 @@
+name: Build and deploy Jungle Widget v5
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare source and signing key
+        env:
+          KEY_PASSWORD: ${{ secrets.JUNGLE_WIDGET_KEY_PASSWORD }}
+        run: |
+          rm -rf widget-src && mkdir widget-src
+          unzip jungle-widget-v5-source.zip -d widget-src
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in 3-jungle-release.keystore.enc -out widget-src/jungle-release.keystore -pass env:KEY_PASSWORD
+      - name: Static RemoteViews and worker inspection
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          root=ET.parse('widget-src/app/src/main/res/layout/widget.xml').getroot()
+          A='{http://schemas.android.com/apk/res/android}'
+          tags=[e.tag.split('}')[-1] for e in root.iter()]
+          assert tags == ['LinearLayout'] + ['TextView']*8, tags
+          assert root.get(A+'layoutDirection') == 'rtl'
+          for e in list(root):
+              assert e.get(A+'layoutDirection') == 'rtl'
+              assert e.get(A+'textDirection') == 'rtl'
+              assert 'right' in e.get(A+'gravity','')
+          src=open('widget-src/app/src/main/java/com/jungle/ofriofek/PlantWidget.java').read()
+          assert 'OneTimeWorkRequest' in src and 'class WaterWorker extends Worker' in src
+          assert 'setFixedLengthStreamingMode' in src and '.put("at",System.currentTimeMillis())' in src
+          print('RemoteViews-safe flat tree:', tags)
+          print('Explicit RTL and right gravity verified on every TextView')
+          print('Water action uses WorkManager and exact API payload fields')
+          PY
+      - name: Build release APK
+        env:
+          JUNGLE_STORE_PASSWORD: ${{ secrets.JUNGLE_WIDGET_KEY_PASSWORD }}
+          JUNGLE_KEY_PASSWORD: ${{ secrets.JUNGLE_WIDGET_KEY_PASSWORD }}
+        run: |
+          cd widget-src
+          gradle wrapper --gradle-version 8.9
+          ./gradlew assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk ../jungle-widget-v5.apk
+      - name: Verify signature, package and layout
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt | sort -V | tail -1)
+          "$APKSIGNER" verify --verbose --print-certs jungle-widget-v5.apk | tee apksigner.txt
+          grep -qi 'c87c6eee' apksigner.txt
+          "$AAPT" dump badging jungle-widget-v5.apk | tee badging.txt
+          grep -q "package: name='com.jungle.ofriofek' versionCode='5' versionName='5.0'" badging.txt
+          "$AAPT" dump xmltree jungle-widget-v5.apk res/layout/widget.xml | tee widget-tree.txt
+          grep -q 'android:layoutDirection(0x010103b2)=2' widget-tree.txt
+          sha256sum jungle-widget-v5.apk | tee sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jungle-widget-v5
+          path: |
+            jungle-widget-v5.apk
+            apksigner.txt
+            badging.txt
+            widget-tree.txt
+            sha256.txt
+      - name: Deploy APK to Pages repository
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add jungle-widget-v5.apk
+          git commit -m 'Deploy Jungle widget v5 APK'
+          git push
