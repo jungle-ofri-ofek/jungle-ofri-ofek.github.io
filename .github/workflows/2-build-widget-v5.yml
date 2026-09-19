@@ -56,7 +56,7 @@ jobs:
           grep -qi 'c87c6eee' apksigner.txt
           "$AAPT" dump badging jungle-widget-v5.apk | tee badging.txt
           grep -q "package: name='com.jungle.ofriofek' versionCode='5' versionName='5.0'" badging.txt
-          "$AAPT" dump xmltree jungle-widget-v5.apk res/layout/widget.xml | tee widget-tree.txt
+          "$AAPT" dump xmltree jungle-widget-v5.apk --file res/layout/widget.xml | tee widget-tree.txt
           grep -q 'android:layoutDirection(0x010103b2)=2' widget-tree.txt
           sha256sum jungle-widget-v5.apk | tee sha256.txt
       - uses: actions/upload-artifact@v4
