@@ -17,7 +17,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.JUNGLE_WIDGET_KEY_PASSWORD }}
         run: |
           rm -rf widget-src && mkdir widget-src
-          unzip jungle-widget-v5-source.zip -d widget-src
+          unzip 1-jungle-widget-v5-source.zip -d widget-src
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in 3-jungle-release.keystore.enc -out widget-src/jungle-release.keystore -pass env:KEY_PASSWORD
       - name: Static RemoteViews and worker inspection
         run: |
